@@ -352,6 +352,28 @@ const TEST_FILTERS: TestFilter[] = [
                           // reason
       'MultipleBoxes-DifferentBoxes',  // TimeOut
     ]
+  },
+  {
+    include: 'batchToSpaceND',
+    excludes: [
+      'tensor3d', 'tensor4d', 'gradient',
+      'accepts a tensor-like object',  // tensor6d not yet implemented
+    ]
+  },
+  {
+    include: 'spaceToBatchND',
+    excludes: [
+      'tensor4d',
+      'gradient',
+      'accepts a tensor-like object',
+    ]
+  },
+  {
+    include: 'softmax',
+    excludes: [
+      'gradient',
+      'Weighted - Reduction.SUM_BY_NONZERO_WEIGHTS',
+    ]
   }
 ];
 
