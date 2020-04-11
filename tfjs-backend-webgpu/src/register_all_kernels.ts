@@ -18,10 +18,10 @@ import {KernelConfig, registerKernel} from '@tensorflow/tfjs-core';
 
 import {squareConfig} from './kernels/Square';
 import {squaredDifferenceConfig} from './kernels/SquaredDifference';
-
+import {transposeConfig} from './kernels/Transpose';
 // List all kernel configs here
 const kernelConfigs: KernelConfig[] =
-    [squareConfig, squaredDifferenceConfig];
+    [squareConfig, squaredDifferenceConfig, transposeConfig];
 
 for (const kernelConfig of kernelConfigs) {
   registerKernel(kernelConfig);
