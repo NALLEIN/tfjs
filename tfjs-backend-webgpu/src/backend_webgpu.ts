@@ -751,14 +751,7 @@ export class WebGPUBackend extends KernelBackend {
       program = new Conv2DMMProgram(convInfo, workPerThread);
     }
 
-    const pad = convInfo.padInfo.type === 'VALID' ?
-        [0, 0] :
-        convInfo.padInfo.type === 'SAME' ?
-        [
-          -Math.floor((convInfo.filterShape[0] - 1) / 2),
-          -Math.floor((convInfo.filterShape[1] - 1) / 2)
-        ] :
-        [convInfo.padInfo.top, convInfo.padInfo.left];
+    const pad = [convInfo.padInfo.top, convInfo.padInfo.left];
 
     const dimensions = [
       convInfo.filterHeight, convInfo.filterWidth, ...pad,
@@ -824,18 +817,12 @@ export class WebGPUBackend extends KernelBackend {
           hasPreluActivationWeights);
     }
 
-    const pad = convInfo.padInfo.type === 'VALID' ?
-        [0, 0] :
-        convInfo.padInfo.type === 'SAME' ?
-        [
-          -Math.floor((convInfo.filterShape[0] - 1) / 2),
-          -Math.floor((convInfo.filterShape[1] - 1) / 2)
-        ] :
-        [convInfo.padInfo.top, convInfo.padInfo.left];
+    const pad = [convInfo.padInfo.top, convInfo.padInfo.left];
 
     const dimensions = [
       convInfo.filterHeight, convInfo.filterWidth, ...pad,
-      convInfo.strideHeight, convInfo.strideWidth
+      convInfo.strideHeight, convInfo.strideWidth, convInfo.dilationHeight,
+      convInfo.dilationWidth
     ];
 
     const inputs: Tensor[] = [input, filter];
