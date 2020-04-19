@@ -22,6 +22,7 @@ import './flags_webgpu';
 import {backend_util, DataStorage, DataType, div, engine, env, findBackend, KernelBackend, Rank, RecursiveArray, ShapeMap, slice_util, sumOutType, Tensor, Tensor1D, Tensor2D, Tensor3D, Tensor4D, TimingInfo, util} from '@tensorflow/tfjs-core';
 import {Glslang} from '@webgpu/glslang/dist/web-devel/glslang.onefile';
 
+import {getPermuted, getReshaped, getReshapedPermuted, getSliceBeginCoords, getSliceSize} from './array_ops_util';
 import {BufferManager} from './buffer_manager';
 import {ArgMinMaxProgram} from './kernels/argminmax_webgpu';
 import {AvgPoolProgram} from './kernels/avgpool_webgpu';
@@ -822,8 +823,8 @@ export class WebGPUBackend extends KernelBackend {
 
     const dimensions = [
       convInfo.filterHeight, convInfo.filterWidth, ...pad,
-      convInfo.strideHeight, convInfo.strideWidth,
-      convInfo.dilationHeight, convInfo.dilationWidth
+      convInfo.strideHeight, convInfo.strideWidth, convInfo.dilationHeight,
+      convInfo.dilationWidth
     ];
 
     const inputs: Tensor[] = [input, filter];
@@ -1122,15 +1123,11 @@ export class WebGPUBackend extends KernelBackend {
             'implemented yet');
     const prod = blockShape.reduce((a, b) => a * b);
 
-    const reshaped = backend_util.getReshaped(x.shape, blockShape, prod);
-    const permuted =
-        backend_util.getPermuted(reshaped.length, blockShape.length);
-    const reshapedPermuted =
-        backend_util.getReshapedPermuted(x.shape, blockShape, prod);
-    const sliceBeginCoords =
-        backend_util.getSliceBeginCoords(crops, blockShape.length);
-    const sliceSize =
-        backend_util.getSliceSize(reshapedPermuted, crops, blockShape.length);
+    const reshaped = getReshaped(x.shape, blockShape, prod);
+    const permuted = getPermuted(reshaped.length, blockShape.length);
+    const reshapedPermuted = getReshapedPermuted(x.shape, blockShape, prod);
+    const sliceBeginCoords = getSliceBeginCoords(crops, blockShape.length);
+    const sliceSize = getSliceSize(reshapedPermuted, crops, blockShape.length);
 
     return x.reshape(reshaped)
                .transpose(permuted)
@@ -1156,13 +1153,13 @@ export class WebGPUBackend extends KernelBackend {
     const paddedX = x.pad(completePaddings);
 
     const reshapedPaddedShape =
-        backend_util.getReshaped(paddedX.shape, blockShape, prod, false);
+        getReshaped(paddedX.shape, blockShape, prod, false);
 
-    const permutedReshapedPaddedPermutation = backend_util.getPermuted(
-        reshapedPaddedShape.length, blockShape.length, false);
+    const permutedReshapedPaddedPermutation =
+        getPermuted(reshapedPaddedShape.length, blockShape.length, false);
 
-    const flattenShape = backend_util.getReshapedPermuted(
-        paddedX.shape, blockShape, prod, false);
+    const flattenShape =
+        getReshapedPermuted(paddedX.shape, blockShape, prod, false);
 
     return paddedX.reshape(reshapedPaddedShape)
                .transpose(permutedReshapedPaddedPermutation)
