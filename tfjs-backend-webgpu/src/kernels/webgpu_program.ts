@@ -121,8 +121,9 @@ export const compileProgram =
       return {bindGroupLayout, pipeline};
     };
 
-export function makeShaderKey<R extends Rank>(program: WebGPUProgram,
-    shapes: Array<ShapeMap[R]>, types: string[]): string {
+export function makeShaderKey<R extends Rank>(
+    program: WebGPUProgram, shapes: Array<ShapeMap[R]>,
+    types: string[]): string {
   const key = (program.workGroupSize ? program.workGroupSize.join(',') : '') +
       shapes.join(',') + types.join(',') + program.variableNames.join(',') +
       (program.shaderKey ? program.shaderKey : program.userCode);
