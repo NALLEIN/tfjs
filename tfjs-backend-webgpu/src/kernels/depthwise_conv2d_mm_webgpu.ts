@@ -70,9 +70,8 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
       if(Ci == int(c / ${channelMul})) {
         int WRow = (r / (filterDims[1]) % filterDims[0]);
         int WCol = r % filterDims[1];
-
-        ivec4 coord = ivec4(WRow, WCol, Ci, c);
-
+        int Mul = c % ${channelMul};
+        ivec4 coord = ivec4(WRow, WCol, Ci, Mul);
         return coordsInBounds(coord, wShape) ? W[getFlatIndex(coord, wShape)] : 0;
       }
 
@@ -85,10 +84,8 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
           row / outShape[2],
           row % outShape[2],
           col);
-      if (coordsInBounds(outCoord, outShape)) {
       result[getFlatIndex(outCoord, outShape)] = value;
       }
-    }
 
     const int MatTileSize = int(gl_WorkGroupSize.x);  // .x == .y
     shared float mm_Asub[MatTileSize][MatTileSize];
