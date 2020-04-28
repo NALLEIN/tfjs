@@ -43,28 +43,40 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
     this.userCode = `
     int batch;
     int dimAOuter = outShape[1] * outShape[2];
-    int dimBOuter = outShape[3]; //Ci * chMul
-    int dimInner = filterDims[0] * filterDims[1];
+    int dimBOuter = outShape[3];  //Ci * Mul
+    int dimInner = xShape[3] * filterDims[0] * filterDims[1];
 
-    float mm_readA(int row, int col, int Ci) {
+    float mm_readA(int row, int col) {
       int r = int(row), c = int(col);
       int outRow = r / outShape[2];
       int outCol = r % outShape[2];
-
-      int WRow = c / filterDims[1];
+      int WRow = (c / filterDims[1]) % filterDims[0];
       int WCol = c % filterDims[1];
+
+      int Ci = c / (filterDims[0] * filterDims[1]);
 
       ivec4 coord = ivec4(
           batch,
-          outRow * stride[0] + dilation[0] * WRow - pad[0],
-          outCol * stride[1] + dilation[1] * WCol - pad[1],
+          outRow * stride[0] + WRow * dilation[0] - pad[0],
+          outCol * stride[1] + WCol * dilation[1] - pad[1],
           Ci);
       return coordsInBounds(coord, xShape) ? x[getFlatIndex(coord, xShape)] : 0;
     }
 
     float mm_readB(int row, int col) {
-      return coordsInBounds(ivec2(row, col), ivec2(dimInner, dimBOuter)) ?
-      W[row * dimBOuter + col] : 0;
+      int r = int(row), c= int(col);
+      int Ci =  r / (filterDims[0] * filterDims[1]);
+
+      if(Ci == int(c / ${channelMul})) {
+        int WRow = (r / (filterDims[1]) % filterDims[0]);
+        int WCol = r % filterDims[1];
+
+        ivec4 coord = ivec4(WRow, WCol, Ci, c);
+
+        return coordsInBounds(coord, wShape) ? W[getFlatIndex(coord, wShape)] : 0;
+      }
+
+      return 0;
     }
 
     void mm_write(int row, int col, float value) {
@@ -85,19 +97,17 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
     void mm_matMul(int dimAOuter, int dimInner, int dimBOuter) {
         int localRow = int(gl_LocalInvocationID.y);  // 0..MatTileSize
         int localCol = int(gl_LocalInvocationID.x);  // 0..MatTileSize
-        int globalRow = int(gl_GlobalInvocationID.y);  // Ho * Wo
-        int globalCol = int(gl_GlobalInvocationID.x);  // Cout
+        int globalRow = int(gl_GlobalInvocationID.y);  // AOuter
+        int globalCol = int(gl_GlobalInvocationID.x);  // Inner
 
         float acc = 0.0;
         int numTiles = (dimInner - 1) / MatTileSize + 1;
-        int Ci = globalCol / ${channelMul};
 
         for (int t = 0; t < numTiles; t++) {
           // Load one tile of A and B into local memory
           int tiledACol = MatTileSize * t + localCol;
           int tiledBRow = MatTileSize * t + localRow;
-
-          mm_Asub[localRow][localCol] = mm_readA(globalRow, tiledACol, Ci);
+          mm_Asub[localRow][localCol] = mm_readA(globalRow, tiledACol);
           mm_Bsub[localRow][localCol] = mm_readB(tiledBRow, globalCol);
 
           // Synchronise to make sure the tile is loaded

@@ -31,7 +31,8 @@ import {ConcatProgram} from './kernels/concat_webgpu';
 import {Conv2DMMProgram} from './kernels/conv2d_mm_webgpu';
 import {Conv2DNaiveProgram} from './kernels/conv2d_naive_webgpu';
 import {CropAndResizeProgram} from './kernels/crop_and_resize_webgpu';
-import {DepthwiseConv2DProgram} from './kernels/depthwise_conv2d_webgpu';
+import {DepthwiseConv2DMMProgram} from './kernels/depthwise_conv2d_mm_webgpu';
+// import {DepthwiseConv2DProgram} from './kernels/depthwise_conv2d_webgpu';
 import {FillProgram} from './kernels/fill_webgpu';
 import {Im2ColProgram} from './kernels/im2col_webgpu';
 import {MatMulPackedProgram} from './kernels/matmul_packed_webgpu';
@@ -741,7 +742,7 @@ export class WebGPUBackend extends KernelBackend {
   depthwiseConv2D(
       x: Tensor4D, filter: Tensor4D,
       convInfo: backend_util.Conv2DInfo): Tensor4D {
-    const program = new DepthwiseConv2DProgram(convInfo);
+    const program = new DepthwiseConv2DMMProgram(convInfo);
     const dimensions = [
       convInfo.filterHeight, convInfo.filterWidth, convInfo.padInfo.top,
       convInfo.padInfo.left, convInfo.strideHeight, convInfo.strideWidth,
@@ -797,8 +798,8 @@ export class WebGPUBackend extends KernelBackend {
 
     const dimensions = [
       convInfo.filterHeight, convInfo.filterWidth, ...pad,
-      convInfo.strideHeight, convInfo.strideWidth,
-      convInfo.dilationHeight, convInfo.dilationWidth
+      convInfo.strideHeight, convInfo.strideWidth, convInfo.dilationHeight,
+      convInfo.dilationWidth
     ];
 
     const inputs: Tensor[] = [input, filter];
