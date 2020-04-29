@@ -16,7 +16,7 @@
  */
 
 import {backend_util, util} from '@tensorflow/tfjs-core';
-import {computeDispatch} from '../webgpu_util';
+import {computeDispatch, computeWorkGroupSizeForConv2d} from '../webgpu_util';
 import {WebGPUProgram} from './webgpu_program';
 
 export class DepthwiseConv2DMMProgram implements WebGPUProgram {
@@ -27,7 +27,7 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
   dispatch: [number, number, number];
   variableNames = ['x', 'W'];
   uniforms = 'ivec2 filterDims, pad, stride, dilation, inDims;';
-  workGroupSize: [number, number, number] = [16, 16, 1];
+  workGroupSize: [number, number, number];
 
   constructor(convInfo: backend_util.Conv2DInfo) {
     this.outputShape = convInfo.outShape;
@@ -35,6 +35,8 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
     this.dispatch = computeDispatch(
         this.dispatchLayout, this.outputShape, this.workGroupSize);
     const channelMul = convInfo.outChannels / convInfo.inChannels;
+    this.workGroupSize =
+        computeWorkGroupSizeForConv2d(this.dispatchLayout, this.outputShape);
 
     util.assert(
         convInfo.dataFormat === 'channelsLast',
@@ -44,16 +46,14 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
     int batch;
     int dimAOuter = outShape[1] * outShape[2];
     int dimBOuter = outShape[3];  //Ci * Mul
-    int dimInner = xShape[3] * filterDims[0] * filterDims[1];
+    int dimInner = filterDims[0] * filterDims[1] * xShape[3];
 
     float mm_readA(int row, int col) {
-      int r = int(row), c = int(col);
-      int outRow = r / outShape[2];
-      int outCol = r % outShape[2];
-      int WRow = (c / filterDims[1]) % filterDims[0];
-      int WCol = c % filterDims[1];
-
-      int Ci = c / (filterDims[0] * filterDims[1]);
+      int outRow = row / outShape[2];
+      int outCol = row % outShape[2];
+      int WRow = col / (filterDims[1] * xShape[3]);
+      int WCol = (col / xShape[3]) % filterDims[1];
+      int Ci = col % xShape[3];
 
       ivec4 coord = ivec4(
           batch,
@@ -65,8 +65,8 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
 
     float mm_readB(int row, int col, int Ci) {
 
-        int WRow = (row / (filterDims[1]) % filterDims[0]);
-        int WCol = row % filterDims[1];
+        int WRow = row / (filterDims[1] * xShape[3]);
+        int WCol = (row / xShape[3]) % filterDims[1];
         int Mul = col % ${channelMul};
         ivec4 coord = ivec4(WRow, WCol, Ci, Mul);
         return coordsInBounds(coord, wShape) ? W[getFlatIndex(coord, wShape)] : 0;
@@ -100,7 +100,7 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
           int tiledBRow = MatTileSize * t + localRow;
           mm_Asub[localRow][localCol] = mm_readA(globalRow, tiledACol);
 
-          int C1 = tiledBRow / (filterDims[0] * filterDims[1]);
+          int C1 = tiledBRow % xShape[3];
           int C2 = globalCol / ${channelMul};
           if(C1 == C2) {mm_Bsub[localRow][localCol] = mm_readB(tiledBRow, globalCol,C1);}
           else {mm_Bsub[localRow][localCol] = 0;}
@@ -109,7 +109,7 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
           barrier();
 
           for (int k = 0; k < MatTileSize; k++) {
-            int C3 = (MatTileSize * t + k) / (filterDims[0] * filterDims[1]);
+            int C3 = (MatTileSize * t + k) % xShape[3];
             if(C3 == C2) {
               acc += mm_Asub[localRow][k] * mm_Bsub[k][localCol];
             }
