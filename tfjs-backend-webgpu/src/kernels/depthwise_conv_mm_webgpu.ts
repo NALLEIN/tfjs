@@ -27,7 +27,7 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
   dispatch: [number, number, number];
   variableNames = ['x', 'W'];
   uniforms = 'ivec2 filterDims, pad, stride, dilation, inDims;';
-  workGroupSize: [number, number, number] = [4, 4, 1];
+  workGroupSize: [number, number, number] = [16, 16, 1];
 
   constructor(convInfo: backend_util.Conv2DInfo) {
     this.outputShape = convInfo.outShape;
@@ -63,19 +63,13 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
       return coordsInBounds(coord, xShape) ? x[getFlatIndex(coord, xShape)] : 0;
     }
 
-    float mm_readB(int row, int col) {
-      int r = int(row), c= int(col);
-      int Ci =  r / (filterDims[0] * filterDims[1]);
+    float mm_readB(int row, int col, int Ci) {
 
-      if(Ci == int(c / ${channelMul})) {
-        int WRow = (r / (filterDims[1]) % filterDims[0]);
-        int WCol = r % filterDims[1];
-        int Mul = c % ${channelMul};
+        int WRow = (row / (filterDims[1]) % filterDims[0]);
+        int WCol = row % filterDims[1];
+        int Mul = col % ${channelMul};
         ivec4 coord = ivec4(WRow, WCol, Ci, Mul);
         return coordsInBounds(coord, wShape) ? W[getFlatIndex(coord, wShape)] : 0;
-      }
-
-      return 0;
     }
 
     void mm_write(int row, int col, float value) {
@@ -105,13 +99,20 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
           int tiledACol = MatTileSize * t + localCol;
           int tiledBRow = MatTileSize * t + localRow;
           mm_Asub[localRow][localCol] = mm_readA(globalRow, tiledACol);
-          mm_Bsub[localRow][localCol] = mm_readB(tiledBRow, globalCol);
+
+          int C1 = tiledBRow / (filterDims[0] * filterDims[1]);
+          int C2 = globalCol / ${channelMul};
+          if(C1 == C2) {mm_Bsub[localRow][localCol] = mm_readB(tiledBRow, globalCol,C1);}
+          else {mm_Bsub[localRow][localCol] = 0;}
 
           // Synchronise to make sure the tile is loaded
           barrier();
 
           for (int k = 0; k < MatTileSize; k++) {
-            acc += mm_Asub[localRow][k] * mm_Bsub[k][localCol];
+            int C3 = (MatTileSize * t + k) / (filterDims[0] * filterDims[1]);
+            if(C3 == C2) {
+              acc += mm_Asub[localRow][k] * mm_Bsub[k][localCol];
+            }
           }
 
           // Synchronise before loading the next tile
