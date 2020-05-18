@@ -78,118 +78,21 @@ describeWebGPU('Ops benchmarks', () => {
     console.log(`Min time: ${fmt(min)} ms -> ${fmt(min / reps)} / rep`);
   }
 
-  it('argMax', async () => {
-    const n = 2;
-    const doTest = async (axis: number) => {
-      const tensors = new Array(n);
-      const maxes = new Array(n);
-      for (let i = 0; i < n; ++i) {
-        tensors[i] = tf.randomNormal([100, 100, 100]);
-      }
-
-      await time(
-          (r) => {
-            maxes[r] = tf.argMax(tensors[r], axis);
-            return [];
-          },
-          async () => {
-            await maxes[maxes.length - 1].data();
-            for (const t of maxes) {
-              t.dispose();
-            }
-          },
-          false, 50, n);
-    };
-
-    await doTest(0);
-    await doTest(1);
-    await doTest(2);
-  }, 60000);
-
-  it('concat', async () => {
-    const a = tf.randomNormal([500, 500]);
-    const b = tf.randomNormal([500, 500]);
-
-    await time(() => tf.concat([a, b], 1));
-  });
-
-  it('resizeBilinear', async () => {
-    const input = tf.randomNormal<tf.Rank.R3>([128, 128, 4]);
-
-    await time(() => input.resizeBilinear([256, 256], false));
-  });
-
-  it('matMul', async () => {
-    const a = tf.randomNormal([500, 500]);
-    const b = tf.randomNormal([500, 500]);
-
-    await time(() => tf.matMul(a, b));
-  });
-
-  it('add', async () => {
-    const a = tf.randomNormal([1, 65, 65, 256]);
-    const b = tf.randomNormal([1, 65, 65, 256]);
-
-    await time(() => tf.add(a, b));
-  });
-
-  it('clip', async () => {
-    const a = tf.randomNormal([1, 65, 65, 256]);
-
-    await time(() => tf.clipByValue(a, 0.1, 0.9));
-  });
-
-  it('conv2d', async () => {
-    const a = tf.randomNormal<tf.Rank.R4>([1, 128, 128, 4]);
-    const b = tf.randomNormal<tf.Rank.R4>([25, 25, 4, 4]);
-
-    await time(() => tf.conv2d(a, b, 1, 'same'));
+  it('depthwiseconv2d', async () => {
+    const x = tf.randomNormal<tf.Rank.R4>([1, 112, 112, 64]);
+    const w = tf.randomNormal<tf.Rank.R4>([3, 3, 64, 1]);
+    await time(() => tf.depthwiseConv2d(x, w, 1, 'valid'), null, true, 10, 10);
   });
 
   it('depthwiseconv2d', async () => {
-    const x = tf.randomNormal<tf.Rank.R4>([1, 128, 128, 1]);
-    const w = tf.tensor4d(
-        [0.303873, 0.229223, 0.144333, 0.803373],
-        [2, 2, 1, 1],
-    );
-
-    await time(() => tf.depthwiseConv2d(x, w, 1, 'valid'));
+    const x = tf.randomNormal<tf.Rank.R4>([1, 56, 56, 128]);
+    const w = tf.randomNormal<tf.Rank.R4>([3, 3, 128, 1]);
+    await time(() => tf.depthwiseConv2d(x, w, 1, 'valid'), null, true, 10, 10);
   });
 
-  it('maxPool with filter size = 1', async () => {
-    const y = tf.randomNormal<tf.Rank.R4>([1, 57, 57, 256]);
-    const z = tf.randomNormal<tf.Rank.R4>([1, 29, 29, 512]);
-    await time(() => tf.maxPool(y, 1, 2, 'same'), null, true, 10, 10);
-    await time(() => tf.maxPool(z, 1, 2, 'same'), null, true, 10, 10);
-  });
-
-  it('maxPool', async () => {
-    const x = tf.randomNormal<tf.Rank.R4>([1, 131, 131, 64]);
-
-    await time(() => tf.maxPool(x, 2, 1, 'same'), null, true, 10, 10);
-  });
-
-  it('prelu', async () => {
-    const x = tf.randomNormal([500]);
-    const a = tf.randomNormal([500]);
-
-    await time(() => tf.prelu(x, a), null, false, 10, 10);
-  });
-
-  it('slice', async () => {
-    const a = tf.randomNormal<tf.Rank.R1>([500]);
-
-    await time(() => tf.slice1d(a, 2, 498), null, false, 10, 10);
-  });
-
-  it('transpose', async () => {
-    const x = tf.randomNormal([1024, 1024]);
-    await time(() => tf.transpose(x, [1, 0]), null, false, 10, 10);
-  });
-
-  it('stridedSlice', async () => {
-    const a = tf.randomNormal<tf.Rank.R1>([500]);
-
-    await time(() => tf.stridedSlice(a, [0], [500], [2]), null, true, 10, 10);
+  it('depthwiseconv2d', async () => {
+    const x = tf.randomNormal<tf.Rank.R4>([1, 28, 28, 256]);
+    const w = tf.randomNormal<tf.Rank.R4>([3, 3, 256, 1]);
+    await time(() => tf.depthwiseConv2d(x, w, 1, 'valid'), null, true, 10, 10);
   });
 });

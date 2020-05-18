@@ -19,7 +19,7 @@ import {backend_util, util} from '@tensorflow/tfjs-core';
 import {computeDispatch} from '../webgpu_util';
 import {WebGPUProgram} from './webgpu_program';
 
-export class DepthwiseConv2DMMProgram implements WebGPUProgram {
+export class DepthwiseConv2DProgram implements WebGPUProgram {
   outputShape: number[];
   shaderKey: string;
   userCode: string;
@@ -27,7 +27,7 @@ export class DepthwiseConv2DMMProgram implements WebGPUProgram {
   dispatch: [number, number, number];
   variableNames = ['x', 'W'];
   uniforms = 'ivec2 filterDims, pad, stride, dilation, inDims;';
-  workGroupSize: [number, number, number] = [4, 4, 1];
+  workGroupSize: [number, number, number] = [4, 16, 1];
 
   constructor(convInfo: backend_util.Conv2DInfo) {
     this.outputShape = convInfo.outShape;
